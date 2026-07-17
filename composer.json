@@ -1,0 +1,41 @@
+{
+    "name": "edulazaro/laracaptcha",
+    "description": "Driver-based captcha for Laravel: Cloudflare Turnstile and Google reCAPTCHA v2/v3 behind a single API",
+    "license": "MIT",
+    "type": "library",
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": ">=11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "EduLazaro\\Laracaptcha\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "EduLazaro\\Laracaptcha\\Tests\\": "tests/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Edu Lazaro",
+            "email": "edu@edulazaro.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "EduLazaro\\Laracaptcha\\LaracaptchaServiceProvider"
+            ],
+            "aliases": {
+                "Captcha": "EduLazaro\\Laracaptcha\\Facades\\Captcha"
+            }
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5|^11.0|^12.0",
+        "orchestra/testbench": "^9.0|^10.0|^11.0"
+    },
+    "minimum-stability": "stable"
+}
