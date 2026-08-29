@@ -36,8 +36,11 @@ interface CaptchaDriver
      *
      * Never throws: a refused token, an expired one, a malformed response and
      * an unreachable provider all come back as a failed VerificationResult, so
-     * the caller only has to look at `passed()`. The IP is optional and is
-     * forwarded to providers that use it as an extra signal.
+     * the caller only has to look at `passed()`. The last of those is the one
+     * worth being deliberate about, since letting a connection error out would
+     * turn a provider outage into a 500 on the form: the shipped drivers report
+     * it as the "unreachable" error code. The IP is optional and is forwarded
+     * to providers that use it as an extra signal.
      */
     public function verify(string $token, ?string $ip = null): VerificationResult;
 

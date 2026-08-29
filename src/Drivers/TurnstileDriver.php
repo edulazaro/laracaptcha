@@ -2,10 +2,9 @@
 
 namespace EduLazaro\Laracaptcha\Drivers;
 
+use EduLazaro\Laracaptcha\Concerns\TalksToProvider;
 use EduLazaro\Laracaptcha\Contracts\CaptchaDriver;
 use EduLazaro\Laracaptcha\Support\VerificationResult;
-use Illuminate\Support\Facades\Http;
-
 /**
  * Cloudflare Turnstile.
  *
@@ -16,6 +15,8 @@ use Illuminate\Support\Facades\Http;
  */
 class TurnstileDriver implements CaptchaDriver
 {
+    use TalksToProvider;
+
     public function __construct(protected array $config)
     {
     }
@@ -28,20 +29,22 @@ class TurnstileDriver implements CaptchaDriver
     /**
      * Post the token to Cloudflare's siteverify endpoint.
      *
-     * Fails closed: `->json()` returns null when the response is not JSON,
-     * which the `?? []` turns into a missing "success" key and therefore an
-     * unsuccessful result. A Cloudflare outage blocks submissions, it does not
-     * wave them through.
+     * Fails closed in both directions: an error page decodes to an empty
+     * payload and so carries no "success", and an unreachable Cloudflare comes
+     * back as the "unreachable" error code instead of an exception. An outage
+     * blocks submissions, it neither waves them through nor breaks the form.
      */
     public function verify(string $token, ?string $ip = null): VerificationResult
     {
-        $data = Http::asForm()
-            ->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', array_filter([
-                'secret' => $this->config['secret'] ?? '',
-                'response' => $token,
-                'remoteip' => $ip,
-            ]))
-            ->json() ?? [];
+        $data = $this->askProvider(
+            'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+            $token,
+            $ip,
+        );
+
+        if ($data === null) {
+            return new VerificationResult(success: false, errorCodes: ['unreachable']);
+        }
 
         return new VerificationResult(
             success: (bool) ($data['success'] ?? false),

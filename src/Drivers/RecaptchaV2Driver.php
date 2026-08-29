@@ -2,10 +2,9 @@
 
 namespace EduLazaro\Laracaptcha\Drivers;
 
+use EduLazaro\Laracaptcha\Concerns\TalksToProvider;
 use EduLazaro\Laracaptcha\Contracts\CaptchaDriver;
 use EduLazaro\Laracaptcha\Support\VerificationResult;
-use Illuminate\Support\Facades\Http;
-
 /**
  * Google reCAPTCHA v2, the "I am not a robot" checkbox.
  *
@@ -15,6 +14,8 @@ use Illuminate\Support\Facades\Http;
  */
 class RecaptchaV2Driver implements CaptchaDriver
 {
+    use TalksToProvider;
+
     public function __construct(protected array $config)
     {
     }
@@ -27,19 +28,22 @@ class RecaptchaV2Driver implements CaptchaDriver
     /**
      * Post the token to Google's siteverify endpoint.
      *
-     * Fails closed, like every driver: a non-JSON or unreachable response ends
-     * up as an unsuccessful result rather than an exception. Subclasses do not
-     * override this, they override toResult() to judge the payload differently.
+     * Fails closed, like every driver: a non-JSON reply and an unreachable
+     * Google both end up as an unsuccessful result rather than an exception.
+     * Subclasses do not override this, they override toResult() to judge the
+     * payload differently.
      */
     public function verify(string $token, ?string $ip = null): VerificationResult
     {
-        $data = Http::asForm()
-            ->post('https://www.google.com/recaptcha/api/siteverify', array_filter([
-                'secret' => $this->config['secret'] ?? '',
-                'response' => $token,
-                'remoteip' => $ip,
-            ]))
-            ->json() ?? [];
+        $data = $this->askProvider(
+            'https://www.google.com/recaptcha/api/siteverify',
+            $token,
+            $ip,
+        );
+
+        if ($data === null) {
+            return new VerificationResult(success: false, errorCodes: ['unreachable']);
+        }
 
         return $this->toResult($data);
     }

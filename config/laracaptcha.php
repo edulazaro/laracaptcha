@@ -29,6 +29,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Provider timeout
+    |--------------------------------------------------------------------------
+    |
+    | Seconds to wait for the provider before giving up. This call sits in the
+    | middle of a form submission, so a slow provider is a slow page: keep it
+    | short. Giving up counts as a failed verification, never as a pass.
+    |
+    */
+
+    'timeout' => 5,
+
+    /*
+    |--------------------------------------------------------------------------
     | Drivers
     |--------------------------------------------------------------------------
     */
