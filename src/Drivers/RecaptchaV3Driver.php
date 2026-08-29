@@ -4,6 +4,14 @@ namespace EduLazaro\Laracaptcha\Drivers;
 
 use EduLazaro\Laracaptcha\Support\VerificationResult;
 
+/**
+ * Google reCAPTCHA v3, the invisible one.
+ *
+ * Same credentials and same endpoint as v2, so only the judging differs: v3
+ * returns a score from 0.0 (almost certainly a bot) to 1.0 and never blocks
+ * anything by itself, which means the threshold is the whole point of the
+ * driver. Config keys: `key`, `secret` and `min_score` (default 0.5).
+ */
 class RecaptchaV3Driver extends RecaptchaV2Driver
 {
     public function name(): string

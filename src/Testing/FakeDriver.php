@@ -5,6 +5,19 @@ namespace EduLazaro\Laracaptcha\Testing;
 use EduLazaro\Laracaptcha\Contracts\CaptchaDriver;
 use EduLazaro\Laracaptcha\Support\VerificationResult;
 
+/**
+ * Driver that answers without talking to anyone, for tests.
+ *
+ * Install it with `Captcha::fake()`, which points every configured driver name
+ * at one instance, then assert on what reached it:
+ *
+ *   $fake = Captcha::fake();                  // every token passes
+ *   $fake = Captcha::fake(success: false);    // every token is refused
+ *   $this->assertCount(1, $fake->attempts());
+ *
+ * `scriptUrl()` is deliberately empty so the widget renders no external script
+ * in a test run.
+ */
 class FakeDriver implements CaptchaDriver
 {
     /** @var array<int, array{token: string, ip: string|null}> */
@@ -21,6 +34,7 @@ class FakeDriver implements CaptchaDriver
         return 'fake';
     }
 
+    /** Records the attempt, then answers with whatever the fake was built with. */
     public function verify(string $token, ?string $ip = null): VerificationResult
     {
         $this->attempts[] = ['token' => $token, 'ip' => $ip];
@@ -33,7 +47,11 @@ class FakeDriver implements CaptchaDriver
         );
     }
 
-    /** @return array<int, array{token: string, ip: string|null}> */
+    /**
+     * Every token this fake was asked about, oldest first.
+     *
+     * @return array<int, array{token: string, ip: string|null}>
+     */
     public function attempts(): array
     {
         return $this->attempts;
