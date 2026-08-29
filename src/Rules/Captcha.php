@@ -4,6 +4,7 @@ namespace EduLazaro\Laracaptcha\Rules;
 
 use Closure;
 use EduLazaro\Laracaptcha\CaptchaManager;
+use EduLazaro\Laracaptcha\Contracts\ExpectsAction;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Cache;
 
@@ -22,28 +23,34 @@ use Illuminate\Support\Facades\Cache;
  */
 class Captcha implements ValidationRule
 {
-    public function __construct(protected ?string $driver = null)
-    {
+    public function __construct(
+        protected ?string $driver = null,
+        protected ?string $action = null,
+    ) {
     }
 
     /**
      * Named constructor, so the rule reads well inline in a rules array.
      *
      * A null driver means the configured default, which is what you want
-     * unless a specific form uses a different provider.
+     * unless a specific form uses a different provider. The action must match
+     * the one the widget was rendered with, and only providers that stamp
+     * their tokens with it (reCAPTCHA v3) can act on it: for the others it is
+     * quietly ignored, since they have nothing to compare against.
      */
-    public static function make(?string $driver = null): static
+    public static function make(?string $driver = null, ?string $action = null): static
     {
-        return new static($driver);
+        return new static($driver, $action);
     }
 
     /**
      * Run the validation rule.
      *
-     * Four ways to fail, in order: the field is empty, the token was already
-     * spent, the provider refused it, or the provider could not be reached
-     * (which the driver reports as a refusal). Only on success is the token
-     * recorded as spent, so a provider outage does not burn valid tokens.
+     * Five ways to fail, in order: the field is empty, the token was already
+     * spent, the token was minted for a different action, the provider refused
+     * it, or the provider could not be reached (which the driver reports as a
+     * refusal). Only on success is the token recorded as spent, so a provider
+     * outage does not burn valid tokens.
      *
      * @param  \Closure(string): \Illuminate\Translation\PotentiallyTranslatedString  $fail
      */
@@ -65,9 +72,13 @@ class Captcha implements ValidationRule
             return;
         }
 
-        $result = app(CaptchaManager::class)
-            ->driver($this->driver)
-            ->verify($value, request()->ip());
+        $driver = app(CaptchaManager::class)->driver($this->driver);
+
+        if ($this->action !== null && $driver instanceof ExpectsAction) {
+            $driver = $driver->expectingAction($this->action);
+        }
+
+        $result = $driver->verify($value, request()->ip());
 
         if ($result->failed()) {
             $fail('laracaptcha::messages.invalid')->translate();

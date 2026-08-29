@@ -45,7 +45,7 @@ Drop the widget component inside any form. It renders the right markup and loads
 </form>
 ```
 
-For reCAPTCHA v3 the widget is invisible and tokens are generated on submit; you can tag the action: `<x-laracaptcha::widget action="register" />`.
+For reCAPTCHA v3 the widget is invisible and tokens are generated on submit; tag the action so the token is bound to this form: `<x-laracaptcha::widget action="register" />`. The default is `submit`.
 
 ### Validating the token
 
@@ -61,6 +61,26 @@ $request->validate([
 ```
 
 The rule includes replay protection: a token that already passed once is rejected (configurable via `prevent_reuse` / `reuse_ttl`).
+
+#### Binding a token to its action (reCAPTCHA v3)
+
+A v3 token carries the action the widget minted it for. Without checking it, a token harvested from a low value form is good for a critical one, so pass the same action to the rule that you gave the widget:
+
+```php
+use EduLazaro\Laracaptcha\Rules\Captcha;
+
+$request->validate([
+    'g-recaptcha-response' => ['required', Captcha::make('recaptcha_v3', 'register')],
+]);
+```
+
+A token minted for anything else is rejected with the `action-mismatch` error code, and so is a response that carries no action at all. Leave the action out and nothing is checked, which is the default. Providers whose tokens are not stamped with an action, Turnstile among them, ignore it.
+
+Outside the rule, ask the driver directly:
+
+```php
+Captcha::driver('recaptcha_v3')->expectingAction('register')->verify($token);
+```
 
 ### Verifying manually
 
