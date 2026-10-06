@@ -4,18 +4,24 @@ namespace EduLazaro\Laracaptcha\Drivers;
 
 use EduLazaro\Laracaptcha\Concerns\TalksToProvider;
 use EduLazaro\Laracaptcha\Contracts\CaptchaDriver;
+use EduLazaro\Laracaptcha\Contracts\ExpectsAction;
 use EduLazaro\Laracaptcha\Support\VerificationResult;
+
 /**
  * Cloudflare Turnstile.
  *
- * The simplest of the three: the siteverify endpoint answers with a plain
- * pass or fail and there is no score to weigh, so nothing here is tunable
- * beyond the credentials. Config keys: `key` (public, rendered into the
- * widget) and `secret` (server side).
+ * The siteverify endpoint answers with a plain pass or fail and there is no
+ * score to weigh. What it does report is the action the widget was rendered
+ * with and the hostname it ran on, and both can be held to what the form
+ * expects. Config keys: `key` (public, rendered into the widget) and `secret`
+ * (server side).
  */
-class TurnstileDriver implements CaptchaDriver
+class TurnstileDriver implements CaptchaDriver, ExpectsAction
 {
     use TalksToProvider;
+
+    /** Action the token must have been minted for, null to accept any. */
+    protected ?string $expectedAction = null;
 
     public function __construct(protected array $config)
     {
@@ -24,6 +30,21 @@ class TurnstileDriver implements CaptchaDriver
     public function name(): string
     {
         return 'turnstile';
+    }
+
+    /**
+     * A copy of this driver that only accepts tokens minted for $action.
+     *
+     * The widget takes the same name (`<x-laracaptcha::widget action="login" />`),
+     * which Cloudflare signs into the token. A clone, because the manager hands
+     * out one instance for the whole request.
+     */
+    public function expectingAction(?string $action): static
+    {
+        $clone = clone $this;
+        $clone->expectedAction = $action;
+
+        return $clone;
     }
 
     /**
@@ -46,11 +67,21 @@ class TurnstileDriver implements CaptchaDriver
             return new VerificationResult(success: false, errorCodes: ['unreachable']);
         }
 
-        return new VerificationResult(
+        $result = new VerificationResult(
             success: (bool) ($data['success'] ?? false),
             errorCodes: $data['error-codes'] ?? [],
             raw: $data,
         );
+
+        if ($result->success && $this->expectedAction !== null && ($data['action'] ?? null) !== $this->expectedAction) {
+            return new VerificationResult(
+                success: false,
+                errorCodes: array_merge($result->errorCodes, ['action-mismatch']),
+                raw: $data,
+            );
+        }
+
+        return $this->checkHostname($result, $data);
     }
 
     /** Empty string when unconfigured, which renders a widget Cloudflare rejects. */

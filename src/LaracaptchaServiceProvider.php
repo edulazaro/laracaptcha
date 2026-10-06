@@ -30,7 +30,7 @@ class LaracaptchaServiceProvider extends ServiceProvider
         $this->loadTranslationsFrom(__DIR__.'/../lang', 'laracaptcha');
 
         // <x-laracaptcha::widget />
-        Blade::anonymousComponentPath(__DIR__.'/../resources/views/components', 'laracaptcha');
+        Blade::componentNamespace('EduLazaro\\Laracaptcha\\View\\Components', 'laracaptcha');
 
         $this->publishes([
             __DIR__.'/../config/laracaptcha.php' => config_path('laracaptcha.php'),

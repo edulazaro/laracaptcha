@@ -42,6 +42,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Hostnames
+    |--------------------------------------------------------------------------
+    |
+    | The sites a token may have been solved on. Every provider reports the
+    | hostname the widget ran on, and without comparing it a token solved on
+    | another site that shares your site key passes here too. Empty means no
+    | check, which is the default because Cloudflare's test keys report
+    | "example.com" whatever page they ran on.
+    |
+    | CAPTCHA_HOSTNAMES=example.com,www.example.com
+    |
+    */
+
+    'hostnames' => array_values(array_filter(array_map('trim', explode(',', (string) env('CAPTCHA_HOSTNAMES', ''))))),
+
+    /*
+    |--------------------------------------------------------------------------
     | Drivers
     |--------------------------------------------------------------------------
     */

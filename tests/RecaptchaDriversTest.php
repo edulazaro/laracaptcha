@@ -64,4 +64,13 @@ class RecaptchaDriversTest extends TestCase
 
         $this->assertTrue($result->passed());
     }
+
+    public function test_with_hostnames_configured_google_reports_are_held_to_them_too(): void
+    {
+        config(['laracaptcha.hostnames' => ['example.com']]);
+        Http::fake(['www.google.com/*' => Http::response(['success' => true, 'score' => 0.9, 'hostname' => 'evil.test'])]);
+
+        $this->assertContains('hostname-mismatch', Captcha::driver('recaptcha_v2')->verify('t')->errorCodes);
+        $this->assertContains('hostname-mismatch', Captcha::driver('recaptcha_v3')->verify('t')->errorCodes);
+    }
 }

@@ -20,6 +20,7 @@ abstract class TestCase extends BaseTestCase
 
     protected function defineEnvironment($app): void
     {
+        $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('k', 32)));
         $app['config']->set('laracaptcha.default', 'turnstile');
         $app['config']->set('laracaptcha.drivers.turnstile', [
             'key' => 'turnstile-site-key',

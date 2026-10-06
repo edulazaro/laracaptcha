@@ -98,11 +98,11 @@ class RecaptchaV3ActionTest extends TestCase
 
     public function test_an_action_on_a_driver_that_has_none_is_ignored(): void
     {
-        Http::fake(['challenges.cloudflare.com/*' => Http::response(['success' => true])]);
+        Http::fake(['www.google.com/*' => Http::response(['success' => true])]);
 
         $validator = Validator::make(
-            ['cf-turnstile-response' => 'the-token'],
-            ['cf-turnstile-response' => ['required', CaptchaRule::make('turnstile', 'login')]]
+            ['g-recaptcha-response' => 'the-token'],
+            ['g-recaptcha-response' => ['required', CaptchaRule::make('recaptcha_v2', 'login')]]
         );
 
         $this->assertTrue($validator->passes());

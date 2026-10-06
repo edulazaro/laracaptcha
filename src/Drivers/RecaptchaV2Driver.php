@@ -53,16 +53,16 @@ class RecaptchaV2Driver implements CaptchaDriver
      *
      * The seam v3 hooks into. At this level the provider's own "success" flag
      * is taken at face value; the score is carried over when present but is
-     * not weighed.
+     * not weighed. The hostname is, when `laracaptcha.hostnames` lists any.
      */
     protected function toResult(array $data): VerificationResult
     {
-        return new VerificationResult(
+        return $this->checkHostname(new VerificationResult(
             success: (bool) ($data['success'] ?? false),
             score: isset($data['score']) ? (float) $data['score'] : null,
             errorCodes: $data['error-codes'] ?? [],
             raw: $data,
-        );
+        ), $data);
     }
 
     /** Empty string when unconfigured, which renders a widget Google rejects. */

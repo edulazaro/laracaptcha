@@ -2,6 +2,7 @@
 
 namespace EduLazaro\Laracaptcha\Concerns;
 
+use EduLazaro\Laracaptcha\Support\VerificationResult;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -47,5 +48,36 @@ trait TalksToProvider
         } catch (ConnectionException) {
             return null;
         }
+    }
+
+    /**
+     * Refuse a passing result whose token was solved on a site not listed in
+     * `laracaptcha.hostnames`.
+     *
+     * Fails closed: with a list configured, a response that names no hostname
+     * at all is a mismatch too. With no list, the result goes back untouched.
+     *
+     * @param VerificationResult $result
+     * @param array<string, mixed> $data
+     * @return VerificationResult
+     */
+    protected function checkHostname(VerificationResult $result, array $data): VerificationResult
+    {
+        $allowed = array_map('strtolower', (array) config('laracaptcha.hostnames', []));
+
+        if (! $result->success || $allowed === []) {
+            return $result;
+        }
+
+        if (in_array(strtolower((string) ($data['hostname'] ?? '')), $allowed, true)) {
+            return $result;
+        }
+
+        return new VerificationResult(
+            success: false,
+            score: $result->score,
+            errorCodes: array_merge($result->errorCodes, ['hostname-mismatch']),
+            raw: $data,
+        );
     }
 }
