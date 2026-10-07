@@ -5,8 +5,10 @@ namespace EduLazaro\Laracaptcha\Rules;
 use Closure;
 use EduLazaro\Laracaptcha\CaptchaManager;
 use EduLazaro\Laracaptcha\Contracts\ExpectsAction;
+use EduLazaro\Laracaptcha\Support\VerificationResult;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Validation rule that checks a captcha token.
@@ -21,8 +23,9 @@ use Illuminate\Support\Facades\Cache;
  *
  * The four failure messages are translatable and live in `lang/`. Which one the user
  * sees is deliberately coarse, since naming the exact reason would help whoever is
- * probing the form. The provider's error codes stay on the result object, for the
- * caller to do as it likes with: the rule writes nothing anywhere.
+ * probing the form. The provider's own error codes can go to the log instead, where
+ * only you read them, but that is **off unless `laracaptcha.log_failures` turns it
+ * on**: a rule should decide, not leave records nobody asked for.
  */
 class Captcha implements ValidationRule
 {
@@ -70,6 +73,11 @@ class Captcha implements ValidationRule
 
         // Replay protection: reject tokens that already passed once.
         if ($preventReuse && Cache::has($cacheKey)) {
+            $this->report($this->driver ?? (string) config('laracaptcha.default'), new VerificationResult(
+                success: false,
+                errorCodes: ['already-used'],
+            ));
+
             $fail('laracaptcha::messages.used')->translate();
 
             return;
@@ -84,6 +92,8 @@ class Captcha implements ValidationRule
         $result = $driver->verify($value, request()->ip());
 
         if ($result->failed()) {
+            $this->report($driver->name(), $result);
+
             // An outage is worth saying out loud: "try again in a moment" is true and
             // actionable, while "verification failed" sends the visitor looking for a
             // mistake of their own that they did not make.
@@ -97,5 +107,34 @@ class Captcha implements ValidationRule
         if ($preventReuse) {
             Cache::put($cacheKey, true, now()->addMinutes((int) config('laracaptcha.reuse_ttl', 5)));
         }
+    }
+
+    /**
+     * Leave the provider's reason for refusing in the log, when asked to.
+     *
+     * Does nothing unless `laracaptcha.log_failures` is on, because a validation rule
+     * writing to the log is not what anyone expects of one. Switched on, it is the only
+     * way to tell a wrong secret, a token solved on another host, an outage and an
+     * actual bot apart: from the outside every failure looks the same, and a report of
+     * "I cannot sign up" has nothing behind it. An empty field is never reported, since
+     * there is nothing to learn from it.
+     *
+     * @param string $driver
+     * @param VerificationResult $result
+     * @return void
+     */
+    protected function report(string $driver, VerificationResult $result): void
+    {
+        if (! config('laracaptcha.log_failures', false)) {
+            return;
+        }
+
+        Log::warning('Captcha verification failed', array_filter([
+            'driver' => $driver,
+            'errors' => $result->errorCodes !== [] ? $result->errorCodes : ['none-reported'],
+            'score' => $result->score,
+            'ip' => request()->ip(),
+            'hostname' => $result->raw['hostname'] ?? null,
+        ], fn ($value) => $value !== null));
     }
 }

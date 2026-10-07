@@ -29,6 +29,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Log failed verifications
+    |--------------------------------------------------------------------------
+    |
+    | Off by default: the package writes nothing anywhere unless you ask it to.
+    |
+    | Turn it on and every refusal is written to the log with the provider's own
+    | error codes. The visitor is only ever told that the captcha failed, on
+    | purpose, so this is the one place the real reason appears: a wrong secret,
+    | a token solved on another host, an outage, a replay. Worth switching on
+    | while chasing a report of "I cannot sign up", and off again afterwards,
+    | since a flood of attempts against a public form writes a line each.
+    |
+    | CAPTCHA_LOG_FAILURES=true
+    |
+    */
+
+    'log_failures' => env('CAPTCHA_LOG_FAILURES', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Provider timeout
     |--------------------------------------------------------------------------
     |
