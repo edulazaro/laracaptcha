@@ -145,14 +145,7 @@ The rule includes replay protection: a token that already passed once is rejecte
 
 What the visitor is told is deliberately coarse, since naming the exact reason helps whoever is probing the form: the challenge was not completed, it failed, it was already used, or it could not be checked right now. That last one is its own message because an outage at the provider is not the visitor getting the challenge wrong, and "try again in a moment" is the only useful thing to say.
 
-The real reason goes to the log, where only you read it:
-
-```
-[2026-10-07 02:14:55] production.WARNING: Captcha verification failed
-{"driver":"turnstile","errors":["invalid-input-secret"],"ip":"203.0.113.7","hostname":"example.com"}
-```
-
-Without that line every failure looks the same from the outside, and a report of "I cannot sign up" has nothing behind it: a wrong secret, a token solved on another host, an outage and an actual bot are told apart only by the codes the provider sent back. Set `CAPTCHA_LOG_FAILURES=false` if a flood of attempts against a public form is filling your log.
+The rule writes nothing anywhere. To act on the exact reason, verify manually and read `errorCodes` off the result.
 
 #### Binding a token to its action (reCAPTCHA v3)
 

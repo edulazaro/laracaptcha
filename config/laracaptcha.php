@@ -29,21 +29,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Log failed verifications
-    |--------------------------------------------------------------------------
-    |
-    | Every refusal is written to the log with the provider's own error codes.
-    | The visitor is told only that the captcha failed, on purpose, so the log
-    | is the only place the real reason appears: a wrong site key, a token
-    | solved on another host, an outage, a replay. Turn it off if a flood of
-    | attempts against a public form is filling your log.
-    |
-    */
-
-    'log_failures' => env('CAPTCHA_LOG_FAILURES', true),
-
-    /*
-    |--------------------------------------------------------------------------
     | Provider timeout
     |--------------------------------------------------------------------------
     |
