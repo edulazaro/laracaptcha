@@ -237,7 +237,8 @@ Laracaptcha is supported by the following sponsors. Thank you for keeping it gro
 
 <p>
   <a href="https://kenodo.com"><img src="art/logo-kenodo.png" width="24" alt="Kenodo"></a>&nbsp;<a href="https://kenodo.com">Kenodo</a>&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://andorradev.com"><img src="art/logo-andorradev.png" width="24" alt="AndorraDev"></a>&nbsp;<a href="https://andorradev.com">AndorraDev</a>
+  <a href="https://andorradev.com"><img src="art/logo-andorradev.png" width="24" alt="AndorraDev"></a>&nbsp;<a href="https://andorradev.com">AndorraDev</a>&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://duracionde.com"><img src="art/logo-duracionde.png" width="34" alt="DuracionDe"></a>&nbsp;<a href="https://duracionde.com">DuracionDe</a>
 </p>
 
 ## Author
