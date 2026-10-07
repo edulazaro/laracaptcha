@@ -2,6 +2,14 @@
 
 # Laracaptcha
 
+<p align="center">
+    <a href="https://github.com/edulazaro/laracaptcha/actions/workflows/tests.yml"><img src="https://github.com/edulazaro/laracaptcha/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+    <a href="https://packagist.org/packages/edulazaro/laracaptcha"><img src="https://img.shields.io/packagist/v/edulazaro/laracaptcha" alt="Latest Stable Version"></a>
+    <a href="https://packagist.org/packages/edulazaro/laracaptcha"><img src="https://img.shields.io/packagist/dt/edulazaro/laracaptcha" alt="Total Downloads"></a>
+    <a href="https://packagist.org/packages/edulazaro/laracaptcha"><img src="https://img.shields.io/packagist/php-v/edulazaro/laracaptcha" alt="PHP Version"></a>
+    <a href="https://github.com/edulazaro/laracaptcha/blob/main/LICENSE.md"><img src="https://img.shields.io/packagist/l/edulazaro/laracaptcha" alt="License"></a>
+</p>
+
 Driver-based captcha for Laravel. One API for **Cloudflare Turnstile** and **Google reCAPTCHA v2/v3**: switch providers by changing one env variable, no code changes.
 
 ## Installation
