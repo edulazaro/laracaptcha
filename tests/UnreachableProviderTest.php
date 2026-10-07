@@ -95,6 +95,37 @@ class UnreachableProviderTest extends TestCase
         $this->assertTrue(Validator::make($data, $rules)->passes());
     }
 
+    public function test_the_visitor_is_told_to_try_again_rather_than_that_they_failed(): void
+    {
+        $this->providerIsDown();
+
+        $validator = Validator::make(
+            ['cf-turnstile-response' => 'the-token'],
+            ['cf-turnstile-response' => ['required', new CaptchaRule]]
+        );
+
+        $this->assertSame(
+            __('laracaptcha::messages.unreachable'),
+            $validator->errors()->first('cf-turnstile-response'),
+            'An outage is not the visitor getting the challenge wrong.'
+        );
+    }
+
+    public function test_a_refused_token_keeps_the_generic_message(): void
+    {
+        Http::fake(['challenges.cloudflare.com/*' => Http::response(['success' => false, 'error-codes' => ['invalid-input-response']])]);
+
+        $validator = Validator::make(
+            ['cf-turnstile-response' => 'the-token'],
+            ['cf-turnstile-response' => ['required', new CaptchaRule]]
+        );
+
+        $this->assertSame(
+            __('laracaptcha::messages.invalid'),
+            $validator->errors()->first('cf-turnstile-response')
+        );
+    }
+
     public function test_an_error_page_is_still_a_failure_and_not_an_outage(): void
     {
         Http::fake(['challenges.cloudflare.com/*' => Http::response('<html>502</html>', 502)]);

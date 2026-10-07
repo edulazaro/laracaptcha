@@ -4,10 +4,102 @@ namespace EduLazaro\Laracaptcha\Tests;
 
 use EduLazaro\Laracaptcha\Rules\Captcha as CaptchaRule;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class CaptchaRuleTest extends TestCase
 {
+    /**
+     * Run the rule against a refusal carrying $errorCodes and hand back what, if
+     * anything, reached the log.
+     *
+     * @param array<int, string> $errorCodes
+     * @return array<int, array{0: string, 1: array<string, mixed>}>
+     */
+    private function logged(array $errorCodes, array $payload = []): array
+    {
+        Http::fake([
+            'challenges.cloudflare.com/*' => Http::response(array_merge(
+                ['success' => false, 'error-codes' => $errorCodes],
+                $payload,
+            )),
+        ]);
+
+        $lines = [];
+
+        Log::listen(function ($message) use (&$lines) {
+            $lines[] = [$message->message, $message->context];
+        });
+
+        Validator::make(
+            ['cf-turnstile-response' => 'the-token'],
+            ['cf-turnstile-response' => ['required', new CaptchaRule]]
+        )->fails();
+
+        return $lines;
+    }
+
+    public function test_a_refusal_leaves_the_providers_own_reason_in_the_log(): void
+    {
+        $lines = $this->logged(['invalid-input-secret'], ['hostname' => 'example.com']);
+
+        $this->assertCount(1, $lines);
+        $this->assertSame('Captcha verification failed', $lines[0][0]);
+        $this->assertSame('turnstile', $lines[0][1]['driver']);
+        $this->assertSame(['invalid-input-secret'], $lines[0][1]['errors']);
+        $this->assertSame('example.com', $lines[0][1]['hostname']);
+    }
+
+    public function test_a_refusal_with_no_codes_still_says_so(): void
+    {
+        $lines = $this->logged([]);
+
+        $this->assertSame(['none-reported'], $lines[0][1]['errors']);
+    }
+
+    public function test_logging_can_be_turned_off(): void
+    {
+        config(['laracaptcha.log_failures' => false]);
+
+        $this->assertSame([], $this->logged(['invalid-input-response']));
+    }
+
+    public function test_an_empty_field_is_not_worth_a_log_line(): void
+    {
+        $lines = [];
+
+        Log::listen(function ($message) use (&$lines) {
+            $lines[] = $message->message;
+        });
+
+        Validator::make(
+            ['cf-turnstile-response' => ''],
+            ['cf-turnstile-response' => ['required', new CaptchaRule]]
+        )->fails();
+
+        $this->assertSame([], $lines);
+    }
+
+    public function test_a_replayed_token_is_logged_as_such(): void
+    {
+        Http::fake(['challenges.cloudflare.com/*' => Http::response(['success' => true])]);
+
+        $data = ['cf-turnstile-response' => 'the-token'];
+        $rules = ['cf-turnstile-response' => ['required', new CaptchaRule]];
+
+        $this->assertTrue(Validator::make($data, $rules)->passes());
+
+        $lines = [];
+
+        Log::listen(function ($message) use (&$lines) {
+            $lines[] = $message->context;
+        });
+
+        $this->assertTrue(Validator::make($data, $rules)->fails());
+
+        $this->assertSame(['already-used'], $lines[0]['errors']);
+    }
+
     public function test_valid_token_passes(): void
     {
         Http::fake([

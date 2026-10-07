@@ -25,6 +25,12 @@ use Illuminate\View\ComponentAttributeBag;
  * challenge is solved, and emptied when it expires, because Livewire submits
  * its properties and not the form's inputs: the hidden field the provider
  * fills never reaches the component.
+ *
+ * `defer` holds a widget back from that drawing pass until the page asks for
+ * it with `Laracaptcha.draw(...)`. It is for a widget that sits in markup
+ * present from the start but hidden, a modal for instance: drawn on load it
+ * would fetch the provider's script for every visitor, when only the few who
+ * open the modal ever need it.
  */
 class Widget extends Component
 {
@@ -34,6 +40,7 @@ class Widget extends Component
      * @param string $theme `auto`, `light` or `dark`.
      * @param string|null $size The provider's size (`normal`, `compact`, `flexible`…).
      * @param string|null $language Turnstile's language, `auto` (the browser's) when null.
+     * @param bool $defer Leave it undrawn until `Laracaptcha.draw(...)` asks for it.
      */
     public function __construct(
         public ?string $driver = null,
@@ -41,6 +48,7 @@ class Widget extends Component
         public string $theme = 'auto',
         public ?string $size = null,
         public ?string $language = null,
+        public bool $defer = false,
     ) {
     }
 

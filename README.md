@@ -51,6 +51,30 @@ Other options: `theme` (`auto`, `light`, `dark`), `size`, and for Turnstile `act
 
 The widget is drawn by the package's own script, not by the provider scanning the page on load, so it also appears on a page reached with `wire:navigate` and when a Livewire update reveals it.
 
+One submit, not two. If the challenge has not resolved by the time the visitor presses the button, the submit is held back and sent again as soon as it does, so the form is never posted with an empty token for the server to refuse. If the challenge fails or times out instead, the submit goes through and the server explains why, because a button that does nothing is worse than an error message.
+
+#### Deferring a hidden widget
+
+A widget in markup that is present but hidden, inside a modal for instance, is drawn like any other: the provider's script is fetched for every visitor, when only the few who open the modal need it. Mark it `defer` and draw it when it is revealed:
+
+```blade
+<div id="gameplay-modal" hidden>
+    <form method="POST" action="/gameplays">
+        @csrf
+        ...
+        <x-laracaptcha::widget defer />
+        <button type="submit">Add</button>
+    </form>
+</div>
+```
+
+```js
+// On opening the modal. Takes the widget, or anything containing it.
+Laracaptcha.draw('#gameplay-modal');
+```
+
+Nothing else changes: once drawn it resolves in the background while the form is filled in, and the submit gate above still applies. A deferred widget that is never drawn leaves the token empty, and the rule refuses it.
+
 ### In a Livewire component
 
 Livewire submits the component's properties, not the form's inputs, so the token the provider writes into its hidden field never reaches the component. Bind the widget instead, and use the trait:
@@ -110,6 +134,17 @@ $request->validate([
 ```
 
 The rule includes replay protection: a token that already passed once is rejected (configurable via `prevent_reuse` / `reuse_ttl`).
+
+What the visitor is told is deliberately coarse, since naming the exact reason helps whoever is probing the form: the challenge was not completed, it failed, it was already used, or it could not be checked right now. That last one is its own message because an outage at the provider is not the visitor getting the challenge wrong, and "try again in a moment" is the only useful thing to say.
+
+The real reason goes to the log, where only you read it:
+
+```
+[2026-10-07 02:14:55] production.WARNING: Captcha verification failed
+{"driver":"turnstile","errors":["invalid-input-secret"],"ip":"203.0.113.7","hostname":"example.com"}
+```
+
+Without that line every failure looks the same from the outside, and a report of "I cannot sign up" has nothing behind it: a wrong secret, a token solved on another host, an outage and an actual bot are told apart only by the codes the provider sent back. Set `CAPTCHA_LOG_FAILURES=false` if a flood of attempts against a public form is filling your log.
 
 #### Binding a token to its action (reCAPTCHA v3)
 
@@ -181,6 +216,8 @@ Livewire::test(Register::class)
 ### Upgrading from 1.0
 
 The widget became a class component: run `php artisan view:clear` after updating, or views compiled against 1.0 keep rendering the old one. A rule given an action now checks it on Turnstile as well.
+
+Since then, a Turnstile or reCAPTCHA v2 submit made before the challenge resolves is held and sent again rather than posted with an empty token. Nothing to change on your side, but if you had wired your own handler to that form's `submit` event to work around it, it is no longer needed.
 
 ### Dev keys
 

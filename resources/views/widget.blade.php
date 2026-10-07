@@ -9,6 +9,7 @@
             data-sitekey="{{ $siteKey }}"
             data-action="{{ $actionValue }}"
             data-laracaptcha-v3
+            @if ($defer) data-laracaptcha-defer @endif
             @if ($bound) wire:ignore x-data x-init="{{ $boot }}" data-model="{{ $bound['name'] }}" data-live="{{ $bound['live'] ? '1' : '0' }}" @endif>
     @else
         <div {{ $attributes->whereDoesntStartWith('wire:model')->merge(['class' => $provider === 'turnstile' ? 'cf-turnstile' : 'g-recaptcha']) }}
@@ -19,6 +20,7 @@
             @if ($size) data-size="{{ $size }}" @endif
             @if ($actionValue) data-action="{{ $actionValue }}" @endif
             @if ($language) data-language="{{ $language }}" @endif
+            @if ($defer) data-laracaptcha-defer @endif
             @if ($bound) wire:ignore x-data x-init="{{ $boot }}" data-model="{{ $bound['name'] }}" data-live="{{ $bound['live'] ? '1' : '0' }}" @endif></div>
     @endif
 

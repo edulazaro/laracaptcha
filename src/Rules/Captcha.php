@@ -5,8 +5,10 @@ namespace EduLazaro\Laracaptcha\Rules;
 use Closure;
 use EduLazaro\Laracaptcha\CaptchaManager;
 use EduLazaro\Laracaptcha\Contracts\ExpectsAction;
+use EduLazaro\Laracaptcha\Support\VerificationResult;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Validation rule that checks a captcha token.
@@ -19,7 +21,11 @@ use Illuminate\Support\Facades\Cache;
  * token captured from one submission cannot be replayed into another. Turn it
  * off with `laracaptcha.prevent_reuse` if your provider already does this.
  *
- * The three failure messages are translatable and live in `lang/`.
+ * The four failure messages are translatable and live in `lang/`. Which one the user
+ * sees is deliberately coarse, since naming the exact reason would help whoever is
+ * probing the form; the provider's own error codes go to the log instead, where only
+ * you read them. Turn that off with `laracaptcha.log_failures` if a flood of attempts
+ * is filling your log.
  */
 class Captcha implements ValidationRule
 {
@@ -67,6 +73,11 @@ class Captcha implements ValidationRule
 
         // Replay protection: reject tokens that already passed once.
         if ($preventReuse && Cache::has($cacheKey)) {
+            $this->report($this->driver ?? (string) config('laracaptcha.default'), new VerificationResult(
+                success: false,
+                errorCodes: ['already-used'],
+            ));
+
             $fail('laracaptcha::messages.used')->translate();
 
             return;
@@ -81,7 +92,14 @@ class Captcha implements ValidationRule
         $result = $driver->verify($value, request()->ip());
 
         if ($result->failed()) {
-            $fail('laracaptcha::messages.invalid')->translate();
+            $this->report($driver->name(), $result);
+
+            // An outage is worth saying out loud: "try again in a moment" is true and
+            // actionable, while "verification failed" sends the visitor looking for a
+            // mistake of their own that they did not make.
+            $fail(in_array('unreachable', $result->errorCodes, true)
+                ? 'laracaptcha::messages.unreachable'
+                : 'laracaptcha::messages.invalid')->translate();
 
             return;
         }
@@ -89,5 +107,33 @@ class Captcha implements ValidationRule
         if ($preventReuse) {
             Cache::put($cacheKey, true, now()->addMinutes((int) config('laracaptcha.reuse_ttl', 5)));
         }
+    }
+
+    /**
+     * Leave the provider's reason for refusing in the log.
+     *
+     * Without it a report of "I cannot sign up" has nothing behind it: every failure
+     * looks the same from the outside, and the difference between a wrong site key, a
+     * token solved on another host, an outage and an actual bot is only in the codes the
+     * provider sent back. An empty field is not reported, since there is nothing to
+     * learn from it.
+     *
+     * @param string $driver
+     * @param VerificationResult $result
+     * @return void
+     */
+    protected function report(string $driver, VerificationResult $result): void
+    {
+        if (! config('laracaptcha.log_failures', true)) {
+            return;
+        }
+
+        Log::warning('Captcha verification failed', array_filter([
+            'driver' => $driver,
+            'errors' => $result->errorCodes !== [] ? $result->errorCodes : ['none-reported'],
+            'score' => $result->score,
+            'ip' => request()->ip(),
+            'hostname' => $result->raw['hostname'] ?? null,
+        ], fn ($value) => $value !== null));
     }
 }

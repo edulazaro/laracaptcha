@@ -1,7 +1,13 @@
 {{-- Draws every widget on the page, once each, whenever one appears: on load, after
      `wire:navigate` and after every Livewire update. `data-navigate-once` keeps navigation
      from running it twice; a copy inserted by a Livewire update (which never runs) is
-     started by the widget's own x-init. --}}
+     started by the widget's own x-init.
+
+     Two things it does beyond drawing. A widget marked `defer` is left for
+     `Laracaptcha.draw(...)` to ask for, so markup that is present but hidden does not
+     fetch the provider's script for every visitor. And a submit made before the challenge
+     has resolved is held back and sent again from the callback, so the visitor presses the
+     button once instead of meeting an empty token and a server-side refusal. --}}
 <script data-navigate-once data-laracaptcha-loader>
 (function () {
     if (window.Laracaptcha) {
@@ -35,6 +41,64 @@
         if (wire) {
             wire.$set(name, token, el.getAttribute('data-live') === '1');
         }
+    }
+
+    function send(form) {
+        form.requestSubmit ? form.requestSubmit() : form.submit();
+    }
+
+    // The token the provider is holding for this widget, '' while unsolved. Asking the
+    // library beats reading its hidden input, which only some providers write.
+    function response(widget) {
+        var lib = library(widget.provider);
+
+        try {
+            return (lib && widget.id !== undefined ? lib.getResponse(widget.id) : '') || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    // Holds back a submit made before the challenge resolved, to send it again once it
+    // does. Without this the form posts an empty token, the server refuses it and the
+    // visitor has to press the button a second time: the same reason `invisible()` already
+    // gates reCAPTCHA v3. A bound widget is left alone, since Livewire submits the
+    // component's state and never the form.
+    function hold(el, widget) {
+        var form = el.closest('form');
+
+        if (! form || el.hasAttribute('data-model')) {
+            return;
+        }
+
+        widget.form = form;
+
+        form.addEventListener('submit', function (event) {
+            if (widget.gaveUp || response(widget)) {
+                return;
+            }
+
+            event.preventDefault();
+            widget.waiting = true;
+        });
+    }
+
+    // Sends the held submit on. Called when the challenge resolves, and also when it gives
+    // up: there the form posts without a token and the server answers with the captcha
+    // error, which tells the visitor more than a button that does nothing. `gaveUp` keeps
+    // this widget from holding anything again, so a provider that keeps failing cannot
+    // leave the form unusable.
+    function resume(widget, gaveUp) {
+        if (gaveUp) {
+            widget.gaveUp = true;
+        }
+
+        if (! widget.waiting || ! widget.form || ! document.contains(widget.form)) {
+            return;
+        }
+
+        widget.waiting = false;
+        send(widget.form);
     }
 
     function load(provider, url) {
@@ -89,7 +153,7 @@
                 lib.ready(function () {
                     lib.execute(key, { action: action }).then(function (token) {
                         el.value = token;
-                        el.form.requestSubmit ? el.form.requestSubmit() : el.form.submit();
+                        send(el.form);
                     });
                 });
             });
@@ -120,8 +184,11 @@
         var options = {
             sitekey: el.getAttribute('data-sitekey'),
             theme: el.getAttribute('data-theme') || undefined,
-            callback: function (token) { share(el, token); },
-            'expired-callback': function () { share(el, ''); }
+            callback: function (token) { share(el, token); resume(widget); },
+            // Not a reason to resume: the provider renews an expired token on its own and
+            // the callback above fires again, which is what sends the held submit.
+            'expired-callback': function () { share(el, ''); },
+            'error-callback': function () { share(el, ''); resume(widget, true); }
         };
 
         if (el.getAttribute('data-size')) {
@@ -136,9 +203,38 @@
             if (el.getAttribute('data-language')) {
                 options.language = el.getAttribute('data-language');
             }
+
+            options['timeout-callback'] = function () { resume(widget, true); };
         }
 
         widget.id = lib.render(el, options);
+
+        hold(el, widget);
+    }
+
+    // Draws the widgets inside `target` that the page's own pass left out because they
+    // carry `defer`. Takes an element, a selector or a list, and either the widget itself
+    // or anything containing it, so opening a modal is `Laracaptcha.draw('#myModal')`.
+    function drawDeferred(target) {
+        var roots = typeof target === 'string'
+            ? document.querySelectorAll(target)
+            : (target instanceof Element ? [target] : (target || []));
+
+        Array.prototype.forEach.call(roots, function (root) {
+            var nodes = root.matches && root.matches('[data-laracaptcha]')
+                ? [root]
+                : root.querySelectorAll('[data-laracaptcha]');
+
+            Array.prototype.forEach.call(nodes, function (node) {
+                // Dropped before drawing, so the scan that follows a script finishing to
+                // load picks the widget up instead of skipping it again.
+                node.removeAttribute('data-laracaptcha-defer');
+
+                if (! node.hasAttribute('data-laracaptcha-drawn')) {
+                    draw(node);
+                }
+            });
+        });
     }
 
     function sweep() {
@@ -161,7 +257,7 @@
 
     function scan() {
         sweep();
-        document.querySelectorAll('[data-laracaptcha]:not([data-laracaptcha-drawn])').forEach(draw);
+        document.querySelectorAll('[data-laracaptcha]:not([data-laracaptcha-drawn]):not([data-laracaptcha-defer])').forEach(draw);
     }
 
     // A token is spent once checked, passed or not, so every widget starts again.
@@ -196,7 +292,7 @@
         });
     }
 
-    window.Laracaptcha = { scan: scan, reset: reset };
+    window.Laracaptcha = { scan: scan, reset: reset, draw: drawDeferred };
     window.addEventListener('laracaptcha-reset', reset);
     document.addEventListener('livewire:navigated', scan);
 

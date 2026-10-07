@@ -52,6 +52,50 @@ class WidgetComponentTest extends TestCase
         $this->assertStringContainsString('data-theme="dark"', $html);
     }
 
+    public function test_defer_marks_the_widget_for_the_page_to_ask_for(): void
+    {
+        $html = Blade::render('<x-laracaptcha::widget defer />');
+
+        $this->assertStringContainsString('data-laracaptcha-defer', $html);
+    }
+
+    public function test_a_widget_is_not_deferred_unless_asked(): void
+    {
+        // The element only: the loader that follows it names the attribute in its own
+        // selector, so the whole render always contains the string.
+        $element = fn (string $tag): string => strstr(Blade::render($tag), '<script', true);
+
+        $this->assertStringNotContainsString('data-laracaptcha-defer', $element('<x-laracaptcha::widget />'));
+        $this->assertStringNotContainsString('data-laracaptcha-defer', $element('<x-laracaptcha::widget driver="recaptcha_v2" />'));
+        $this->assertStringNotContainsString('data-laracaptcha-defer', $element('<x-laracaptcha::widget driver="recaptcha_v3" />'));
+    }
+
+    public function test_recaptcha_v3_can_be_deferred_too(): void
+    {
+        $html = Blade::render('<x-laracaptcha::widget driver="recaptcha_v3" defer />');
+
+        $this->assertStringContainsString('data-laracaptcha-defer', $html);
+    }
+
+    public function test_the_page_pass_skips_deferred_widgets_and_can_draw_them_later(): void
+    {
+        $html = Blade::render('<x-laracaptcha::widget defer />');
+
+        // The selector the loader sweeps the page with has to exclude them, or deferring
+        // would only delay the draw until the next scan.
+        $this->assertStringContainsString(':not([data-laracaptcha-defer])', $html);
+        $this->assertStringContainsString('draw: drawDeferred', $html);
+    }
+
+    public function test_a_submit_before_the_challenge_resolves_is_held_and_sent_again(): void
+    {
+        $html = Blade::render('<x-laracaptcha::widget />');
+
+        $this->assertStringContainsString('hold(el, widget)', $html);
+        $this->assertStringContainsString('resume(widget)', $html);
+        $this->assertStringContainsString("'error-callback'", $html);
+    }
+
     public function test_the_widget_is_drawn_explicitly_so_it_survives_navigation(): void
     {
         $html = Blade::render('<x-laracaptcha::widget />');
